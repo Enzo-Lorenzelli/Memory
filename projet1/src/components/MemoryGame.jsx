@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import '../Styles/MemoryGame.css';
 import Card from './Card';
-import { shuffleArray, checkForMatch } from './utils';
 import { initialNumbers } from './data';
+import { shuffleArray } from './utils';
+import { checkForMatch } from './Card';
+
+const INITIAL_GAME_STATE = {
+  cards: [],
+  flippedCards: [],
+  foundPairs: [],
+  moves: 0,
+};
+
+const TIMEOUT_DELAY = 1000;
+
 function MemoryGame() {
-  const [gameState, setGameState] = useState({
-    cards: [],
-    flippedCards: [],
-    foundPairs: 0,
-    moves: 0,
-  });
+  const [gameState, setGameState] = useState(INITIAL_GAME_STATE);
 
   useEffect(() => {
     shuffleCards();
@@ -17,7 +23,23 @@ function MemoryGame() {
 
   useEffect(() => {
     if (gameState.flippedCards.length === 2) {
-      checkForMatch();
+      const [firstCard, secondCard] = gameState.flippedCards;
+
+      if (
+        gameState.cards[firstCard].number !== gameState.cards[secondCard].number
+      ) {
+        setTimeout(() => {
+          setGameState((prevState) => ({
+            ...prevState,
+            flippedCards: [],
+            cards: prevState.cards.map((card, index) =>
+              index === firstCard || index === secondCard
+                ? { ...card, visible: false }
+                : card
+            ),
+          }));
+        }, TIMEOUT_DELAY);
+      }
     }
   }, [gameState.flippedCards]);
 
@@ -25,47 +47,80 @@ function MemoryGame() {
     const shuffledCards = shuffleArray([...initialNumbers, ...initialNumbers]);
     setGameState((prevState) => ({
       ...prevState,
-      cards: shuffledCards.map((number) => ({ number, visible: false })),
+      cards: shuffledCards.map((number) => ({
+        number,
+        visible: false,
+        pairFound: false,
+      })),
     }));
+    console.log('Cards shuffled');
   };
 
   const handleCardClick = (index) => {
-    const { cards, flippedCards, moves, foundPairs } = gameState; // Destructure gameState
+    const { cards, flippedCards, moves } = gameState;
+
     if (
       flippedCards.length < 2 &&
       !cards[index].visible &&
-      !cards[index].matched
+      !cards[index].pairFound
     ) {
-      setGameState((prevState) => ({
-        ...prevState,
-        flippedCards: [...flippedCards, index],
-        cards: cards.map((card, i) =>
-          i === index ? { ...card, visible: true } : card
-        ),
+      console.log('Clicked card index:', index);
+
+      const updatedFlippedCards = [...flippedCards, index];
+      const updatedCards = cards.map((card, i) =>
+        i === index ? { ...card, visible: true } : card
+      );
+      const updatedGameState = {
+        ...gameState,
+        cards: updatedCards,
+        flippedCards: updatedFlippedCards,
         moves: moves + 1,
-      }));
-      if (flippedCards.length === 1) {
-        // Pass gameState object to checkForMatch function
-        checkForMatch(gameState, setGameState);
+      };
+      const updatedGameStateAfterMatch = checkForMatch(updatedGameState);
+
+      setGameState(updatedGameStateAfterMatch);
+
+      if (updatedGameStateAfterMatch.flippedCards.length === 2) {
+        setTimeout(() => {
+          if (
+            updatedGameStateAfterMatch.foundPairs.length ===
+            gameState.foundPairs.length
+          ) {
+            // Aucune paire n'a été trouvée, réinitialiser les cartes retournées
+            console.log('No pair found. Resetting flipped cards.');
+            setGameState((prevState) => ({
+              ...prevState,
+              flippedCards: [],
+              cards: prevState.cards.map((card) => ({
+                ...card,
+                visible: false,
+              })),
+            }));
+          }
+        }, TIMEOUT_DELAY);
       }
     }
   };
 
   const { cards, moves, foundPairs } = gameState;
+  const totalPairs = initialNumbers.length;
   const victoryMessage =
-    foundPairs === 10 ? "You've won! Congratulations!" : '';
+    foundPairs.length === totalPairs ? "You've won! Congratulations!" : '';
 
   return (
     <div className='memory-game'>
       <h1>Casino Memory Game</h1>
       <p>Moves: {moves}</p>
+      <p>
+        Pairs found: {foundPairs.length} / {totalPairs}
+      </p>
       <p>{victoryMessage}</p>
       <div className='card-grid'>
         {cards.map((card, index) => (
           <Card
             key={index}
             number={card.number}
-            visible={card.visible}
+            visible={card.visible || card.pairFound}
             onClick={() => handleCardClick(index)}
           />
         ))}
