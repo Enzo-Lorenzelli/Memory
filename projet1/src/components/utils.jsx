@@ -29,7 +29,7 @@ export function checkForMatch(gameState) {
     return card;
   });
 
-  // Return the updated state
+  // Return the updated state 
   return {
     ...gameState,
     foundPairs: [...gameState.foundPairs, ...pairsFound],
@@ -37,3 +37,5 @@ export function checkForMatch(gameState) {
     cards: updatedCards,
   };
 }
+
+export const initialNumbers = Array.from({ length: 10 }, (_, i) => i + 1);
